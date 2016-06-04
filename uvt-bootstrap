@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -x
+
+# Install UVT
+#apt-get install uvtool uvtool-libvirt
+
+# Download image if it missing
+if [ ! -n "`uvt-simplestreams-libvirt query release=trusty arch=amd64`" ]; then
+  echo 'Downloading ubuntu-cloud image'
+  uvt-simplestreams-libvirt sync release=trusty arch=amd64
+fi
+
+name=testvm
+
+uvt-kvm list
+
+uvt-kvm destroy $name
+
+uvt-kvm create $name \
+  release=trusty arch=amd64 \
+  --memory 1024 \
+  --disk 10 \
+  --cpu 2 \
+  --user-data user-data \
+  --run-script-once provision.sh
+#  --meta-data my-meta-data
+
+#  --bridge br0 \
+
+uvt-kvm wait --insecure $name
+
+echo "VM IP Address: ", `uvt-kvm ip $name`
+
+echo "Connecting to VM..."
+uvt-kvm ssh --insecure $name
+
