@@ -2,7 +2,10 @@
 
 set -x
 
-# Install UVT
+name=testvm
+secondNIC=br0
+
+# Install uvtool
 #apt-get install uvtool uvtool-libvirt
 
 # Download image if it missing
@@ -11,27 +14,40 @@ if [ ! -n "`uvt-simplestreams-libvirt query release=trusty arch=amd64`" ]; then
   uvt-simplestreams-libvirt sync release=trusty arch=amd64
 fi
 
-name=testvm
+# Create ssh key for VM if not exist
+if [ ! -f "$name.key" ]; then
+  ssh-keygen -f "$name.key" -N ""
+fi
 
-uvt-kvm list
+# Delete VM if exists
+if [ -n "`uvt-kvm list | grep $name`" ]; then
+  uvt-kvm destroy $name
+fi
 
-uvt-kvm destroy $name
-
+# Create VM
 uvt-kvm create $name \
   release=trusty arch=amd64 \
   --memory 1024 \
   --disk 10 \
   --cpu 2 \
-  --user-data user-data \
+  --ssh-public-key-file "$name.key.pub" \
   --run-script-once provision.sh
-#  --meta-data my-meta-data
 
-#  --bridge br0 \
+# Configure secondary interface to bridge
+if ifconfig $secondNIC ; then
+virsh attach-interface --domain $name --type bridge \
+        --source $secondNIC --model virtio \
+        --config --live
+fi
 
-uvt-kvm wait --insecure $name
+# Wait untill VM booted and provisioned
+uvt-kvm wait --insecure --ssh-private-key-file "$name.key" $name
 
-echo "VM IP Address: ", `uvt-kvm ip $name`
+vmip=`uvt-kvm ip $name`
+echo "VM IP Address: $vmip"
 
 echo "Connecting to VM..."
-uvt-kvm ssh --insecure $name
+#because issue with using custom ssh key file with 'uvt-kvm ssh' command, use standart ssh instead
+#uvt-kvm ssh --insecure $name
+ssh -i "$name.key" -l ubuntu $vmip
 

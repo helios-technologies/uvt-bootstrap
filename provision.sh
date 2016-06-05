@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo 123 > /tmp/123
-
+echo "sample provision" > /testfile
 
 #apt-get update
-#apt-get install mc
+#apt-get install -y git
+#git clone ...
